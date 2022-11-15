@@ -4,9 +4,11 @@ para_file=$1"/col1_para_generated"
 non_para_file=$1"/col1_nonpara_generated"
 original_badcase=$1"/badcases"
 
-awk 'Begin{FS="\t"; OFS="\t"} $1!=$2{print $1 "\t" $2 "\t" $3}'  $para_file > $para_file'_non_repeat'
-awk 'Begin{FS="\t"; OFS="\t"} $1!=$2{print $1 "\t" $2 "\t" $3}'  $non_para_file > $non_para_file'_non_repeat'
+# awk 'Begin{FS="\t"; OFS="\t"} $1!=$2{print $1 "\t" $2 "\t" $3}'  $para_file > $para_file'_non_repeat'
+# awk 'Begin{FS="\t"; OFS="\t"} $1!=$2{print $1 "\t" $2 "\t" $3}'  $non_para_file > $non_para_file'_non_repeat'
 
+awk -v FS='\t' -v OFS='\t' '$1!=$2{print $1 "\t" $2 "\t" $3}' $para_file > $para_file'_non_repeat'
+awk -v FS='\t' -v OFS='\t' '$1!=$2{print $1 "\t" $2 "\t" $3}' $non_para_file > $non_para_file'_non_repeat'
 
 # cat $original_badcase $para_file'_non_repeat' $non_para_file'_non_repeat' > $1'/col1_all'
 

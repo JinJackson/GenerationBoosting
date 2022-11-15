@@ -10,6 +10,8 @@ from tqdm import tqdm
 import argparse
 import subprocess
 
+import transformers
+transformers.logging.set_verbosity_error()
 
 from utils import accuracy, f1_score, getLogger, TrainData
 
@@ -57,12 +59,14 @@ def train(model, tokenizer, checkpoint):
 
     t_total = len(train_dataloader) * args.epochs
 
-
+    language = None
     if args.boosting_train:
         if args.dataset == 'LCQMC':
             extra_step_for_one_col = 2000
-        elif args.dataset == 'BQ':
-            extra_step_for_one_col = 1000
+            language = 'cn'
+        elif args.dataset == 'quora':
+            extra_step_for_one_col = 3500
+            language = 'en'
         else:
             raise Exception
 
@@ -157,7 +161,11 @@ def train(model, tokenizer, checkpoint):
 
             step += 1
             global_steps += 1
-            if step % args.saving_steps == 0:
+            
+            if global_steps == warmup_steps:
+                wrong_case = []
+            
+            if global_steps > warmup_steps and step % args.saving_steps == 0:
                 logger.debug("loss:"+str(np.array(epoch_loss).mean()))
                 logger.debug('learning_rate:' + str(optimizer.state_dict()['param_groups'][0]['lr']))
                 dev_loss, dev_acc, dev_f1 = test(model=model, tokenizer=tokenizer, test_file=args.dev_file, checkpoint=epoch)
@@ -194,7 +202,7 @@ def train(model, tokenizer, checkpoint):
 
                 # runing boosting train
 
-                if global_steps > warmup_steps and args.boosting_train:
+                if global_steps > warmup_steps and args.boosting_train:  
 
                     logger.info('Start boosting train for epoch' + str(epoch) + str(step))
                     # writing badcases
@@ -218,13 +226,15 @@ def train(model, tokenizer, checkpoint):
         
                     # boosting_train(model, tokenizer, optimizer, scheduler, epoch, step)
 
-                    device_id = str(args.gen_device)
+                    # device_id = str(args.gen_device)
+                    device_id = '7'
+                    
                     source_file = args.save_dir + 'wrong_case/epoch_'+ str(epoch) + '_step' + str(step)
 
                     if args.boosting_col1:
                         # source_file = args.save_dir + 'wrong_case/epoch_'+ str(epoch) + '_step' + str(step) + '/col1'
-                        command_para = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'para' + ' ' + source_file + '/col1'
-                        command_nonpara = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'nonpara' + ' ' + source_file + '/col1'
+                        command_para = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'para' + ' ' + source_file + '/col1' + ' ' + language
+                        command_nonpara = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'nonpara' + ' ' + source_file + '/col1' + ' ' + language
                         merge_del_repeat = 'sh ./GenText/del_repeat_cat_merge_col1.sh ' + source_file
 
                         # check_output应该是串行执行，或者Popen() + wait()
@@ -235,8 +245,8 @@ def train(model, tokenizer, checkpoint):
                     
                     
                     if args.boosting_col2:
-                        command_para = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'para' + ' ' + source_file + '/col2'
-                        command_nonpara = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'nonpara' + ' ' + source_file + '/col2'
+                        command_para = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'para' + ' ' + source_file + '/col2' + ' ' + language
+                        command_nonpara = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'nonpara' + ' ' + source_file + '/col2' + ' ' + language
                         merge_del_repeat = 'sh ./GenText/del_repeat_cat_merge_col2.sh ' + source_file
 
                         subprocess.check_output(command_para, shell=True)

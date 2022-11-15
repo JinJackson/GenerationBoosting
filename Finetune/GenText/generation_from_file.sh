@@ -3,14 +3,21 @@
 #Gen_type = 'para' or 'nonpara'
 Gen_type=$2
 source_file=$3
+Gen_lang=$4
 output_dir=$source_file"_"$Gen_type"_generated"
 
 
 
-nonpara_model_path=/home/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/LCQMC/midones/nonpara/finetuned-bart-large-chinese/bs8_accumulation4_epoch3_lr2e-5_seed15213
-para_model_path=/home/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/LCQMC/midones/para/finetuned-bart-large-chinese/bs8_accumulation4_epoch3_lr2e-5_seed15213
+if [ $Gen_lang = 'cn' ]
+then
+    nonpara_model_path=/data1/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/LCQMC/midones/nonpara/finetuned-bart-large-chinese/bs8_accumulation4_epoch3_lr2e-5_seed15213
+    para_model_path=/data1/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/LCQMC/midones/para/finetuned-bart-large-chinese/bs8_accumulation4_epoch3_lr2e-5_seed15213
+elif [ $Gen_lang = 'en' ]
+then
+    nonpara_model_path=/data1/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/quora2/nonpara/finetuned-bart-large/bs8_accumulation2_epoch3_lr2e-5_seed15213
+    para_model_path=/data1/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/quora2/para/finetuned-bart-large/bs8_accumulation2_epoch3_lr2e-5_seed15213
+fi
 
-# model_path='choose'
 
 if [ $Gen_type = "para" ]
 then
@@ -19,6 +26,8 @@ elif [ $Gen_type = 'nonpara' ]
 then
     model_path=$nonpara_model_path
 fi
+
+
 
 echo $Gen_type
 echo $model_path
@@ -29,7 +38,7 @@ cd ./GenText
 
 CUDA_VISIBLE_DEVICES=$1 python gen_from_file.py \
     --model_type bart \
-    --language 'cn' \
+    --language $Gen_lang \
     --gen_type $Gen_type \
     --model_name_or_path=$model_path \
     --data_dir $source_file \

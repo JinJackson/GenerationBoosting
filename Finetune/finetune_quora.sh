@@ -1,17 +1,17 @@
 
-dataset="LCQMC"
+dataset="quora"
 # model_type="hfl/chinese-bert-wwm"
-model_type="bert-base-chinese"
+model_type="bert-base-uncased"
 model_name=${model_type#*/}
 batch_size=32
 epochs=3
 seed=4096
-learning_rate='2e-5'
+learning_rate='2.5e-5'
 
-boosting_ratio=0.25
-saving_steps=250
+boosting_ratio=0.5
+saving_steps=1000
 
-exp_type=boosting_notshuffshell_origin_col1_col2_ratio_afterwarmup
+exp_type=boosting_notshuffshell_col1_col2_ratio_afterwarmup_reproduct_test_cu13
 
 
 train_file="../Data/$dataset/clean/train_clean.txt"
@@ -21,7 +21,7 @@ dev_file="../Data/$dataset/clean/dev_clean.txt"
 test_file="../Data/$dataset/clean/test_clean.txt"
 
 
-output_dir="/home/zljin/experiments/Paraphrase/Finetune/result/$dataset/$exp_type/$model_name/""bs"$batch_size"_epoch"$epochs"_lr"$learning_rate"_savingsteps"$saving_steps"_seed"$seed"_ratio"$boosting_ratio/
+output_dir="/data1/zljin/experiments/Paraphrase/Finetune/result_test/$dataset/$exp_type/$model_name/""bs"$batch_size"_epoch"$epochs"_lr"$learning_rate"_savingsteps"$saving_steps"_seed"$seed"_ratio"$boosting_ratio"2"/
 
 
 echo $train_file
@@ -38,13 +38,12 @@ CUDA_VISIBLE_DEVICES=$1 python run_finetune.py \
 --learning_rate $learning_rate \
 --epochs $epochs \
 --batch_size $batch_size \
---max_length 100 \
+--max_length 128 \
 --saving_steps $saving_steps \
 --gen_device $1 \
 --boosting_train \
---boosting_origin \
 --boosting_col1 \
 --boosting_col2 \
 --boosting_ratio $boosting_ratio \
 --warmup_steps 0.1
-
+# --boosting_origin \

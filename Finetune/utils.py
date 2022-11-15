@@ -57,7 +57,7 @@ class TrainData(Dataset):
         tokenzied_dict = self.tokenizer.encode_plus(text=query1,
                                                     text_pair=query2,
                                                     max_length=self.max_length,
-                                                    truncation=True,
+                                                    truncation='longest_first',
                                                     padding='max_length')
         input_ids  = np.array(tokenzied_dict['input_ids'])
         attention_mask = np.array(tokenzied_dict['attention_mask'])

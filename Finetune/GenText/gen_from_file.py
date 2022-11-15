@@ -147,8 +147,14 @@ if __name__ == "__main__":
 
     if args.language == 'cn':
         tokenizer_class = BertTokenizer
+        max_length = 32
+        flag = True
+        sep_sign = ''
     elif args.language == 'en':
         tokenizer_class = BartTokenizer
+        max_length = 200
+        flag = False
+        sep_sign = ' '
     
     print("tokenizer_class:", tokenizer_class)
 
@@ -164,6 +170,8 @@ if __name__ == "__main__":
 
 
     preds = []
+
+    decoder_start_token_id = tokenizer.bos_token_id
     
     for batch in tqdm(eval_dataloader, desc="Evaluating"):
         with torch.no_grad():
@@ -172,9 +180,10 @@ if __name__ == "__main__":
                     batch[k] = v.to(device)
             with torch.no_grad():
                 generated_ids = model.generate(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'], use_cache=True, num_beams=5, 
-                    length_penalty=0.6, max_length=32, repetition_penalty=2.0, decoder_start_token_id=101)
+                    length_penalty=0.6, max_length=max_length, repetition_penalty=2.0, decoder_start_token_id=decoder_start_token_id)
                 gen_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
-                gen_text = [t if t.endswith('？') else t+' ？' for t in gen_text]
+                if flag:
+                    gen_text = [t if t.endswith('？') else t+' ？' for t in gen_text]
                 preds += gen_text
     # written_file = args.data_dir + '_generated'
     original_data = []
@@ -190,9 +199,10 @@ if __name__ == "__main__":
     assert len(original_data) == len(preds)
 
     written_file = args.output_dir
+    
     with open(written_file, "w", encoding='utf-8') as writer:
         for origin, gen in zip(original_data, preds):
-            gen = ''.join(gen.split())
+            gen = sep_sign.join(gen.split())
             if origin.rstrip('？').rstrip('?').rstrip('。').rstrip('！').rstrip('.') == gen.rstrip('？').rstrip('?').rstrip('。').rstrip('！').rstrip('.'):
                 continue
 
