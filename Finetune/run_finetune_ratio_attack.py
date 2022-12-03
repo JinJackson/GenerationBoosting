@@ -15,7 +15,7 @@ import transformers
 transformers.logging.set_verbosity_error()
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-from utils import accuracy, f1_score, getLogger, TrainData
+from utils import accuracy, f1_score, getLogger, TrainData, GenDataset
 
 # sys.path.append('./GenText')
 
@@ -234,6 +234,8 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
                         para_tokenizer = attack_args['para_tokenizer']
                         nonpara_model = attack_args['nonpara_model']
                         nonpara_tokenizer = attack_args['nonpara_tokenizer']
+                        gen_max_length = attack_args['max_length']
+                        gen_language = attack_args['language']
 
 
                         col1_case_file = wrong_case_path + '/col1'
@@ -578,6 +580,68 @@ def boosting_train(model, tokenizer, optimizer, scheduler, epoch, step):
     logger.debug("Saving optimizer and scheduler states to %s", output_dir)
     
 
+def gen_from_file(model, tokenizer, file_path, language, max_length, gen_type):
+    def load_and_cache_examples(tokenizer, file_path):
+        dataset = GenDataset(tokenizer, data_dir=file_path, max_source_length=256)
+        return dataset
+    if language == 'cn':
+        batch_size = 16
+        flag = True
+        sep_sign = ''
+    elif language == 'en':
+        batch_size = 8
+        flag = False
+        sep_sign = ' '
+    else:
+        assert False, 'language should be in [cn, en]'
+    eval_dataset = load_and_cache_examples(tokenizer)
+    eval_sampler = SequentialSampler(eval_dataset)
+    eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=batch_size, collate_fn=eval_dataset.collate_fn)
+
+    # Gen!!
+    logger.info("  Num examples = %d", len(eval_dataset))
+    logger.info("  Batch size = %d", batch_size)
+
+
+    preds = []
+
+    decoder_start_token_id = tokenizer.bos_token_id
+    
+    for batch in tqdm(eval_dataloader, desc="Evaluating"):
+        with torch.no_grad():
+            for k, v in batch.items():
+                if isinstance(v, torch.Tensor):
+                    batch[k] = v.to(args.device)
+            with torch.no_grad():
+                generated_ids = model.generate(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'], use_cache=True, num_beams=5, 
+                    length_penalty=0.6, max_length=max_length, repetition_penalty=2.0, decoder_start_token_id=decoder_start_token_id)
+                gen_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+                if flag:
+                    gen_text = [t if (t.endswith('？') or t.endswith('?')) else t+' ？' for t in gen_text]
+                preds += gen_text
+    # written_file = args.data_dir + '_generated'
+    original_data = []
+    with open(args.data_dir, 'r', encoding='utf-8') as reader:
+        lines = reader.readlines()
+        original_data = [line.strip() for line in lines]
+    
+    if args.gen_type not in ['para', 'nonpara']:
+        print('gen_type wrong, plz input \"para\" or \"nonpara\"')
+    
+    label = 1 if args.gen_type == 'para' else 0
+    print(len(original_data), len(preds))
+    assert len(original_data) == len(preds)
+
+    written_file = args.output_dir
+    
+    with open(written_file, "w", encoding='utf-8') as writer:
+        for origin, gen in zip(original_data, preds):
+            gen = sep_sign.join(gen.split())
+            if origin.rstrip('？').rstrip('?').rstrip('。').rstrip('！').rstrip('.') == gen.rstrip('？').rstrip('?').rstrip('。').rstrip('！').rstrip('.'):
+                continue
+
+            writer.write(origin + '\t' + gen + '\t' + str(label) + '\n')
+    
 
 
 if __name__ == "__main__":
