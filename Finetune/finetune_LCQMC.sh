@@ -7,11 +7,11 @@ batch_size=32
 epochs=3
 seed=4096
 learning_rate='2e-5'
-
+boosting_method='Gen'
 boosting_ratio=0.25
 saving_steps=500
 
-exp_type=boosting_notshuffshell_col1_col2_ratio_afterwarmup_reproduct_test_cu13
+exp_type=boosting_notshuffshell_col1_col2_ratio_afterwarmup_newratio_stop10bs
 
 
 train_file="../Data/$dataset/clean/train_clean.txt"
@@ -21,11 +21,11 @@ dev_file="../Data/$dataset/clean/dev_clean.txt"
 test_file="../Data/$dataset/clean/test_clean.txt"
 
 
-output_dir="/data1/zljin/experiments/Paraphrase/Finetune/result/$dataset/$exp_type/$model_name/""bs"$batch_size"_epoch"$epochs"_lr"$learning_rate"_savingsteps"$saving_steps"_seed"$seed"_ratio"$boosting_ratio/
+output_dir="/data/zljin/experiments/Paraphrase/Finetune/result/$dataset/$exp_type/$model_name/""bs"$batch_size"_epoch"$epochs"_lr"$learning_rate"_savingsteps"$saving_steps"_seed"$seed"_ratio"$boosting_ratio/
 
 
 echo $train_file
-CUDA_VISIBLE_DEVICES=$1 python run_finetune.py \
+CUDA_VISIBLE_DEVICES=$1 python run_finetune_ratio.py \
 --train_file $train_file \
 --dataset $dataset \
 --dev_file $dev_file \
@@ -42,6 +42,7 @@ CUDA_VISIBLE_DEVICES=$1 python run_finetune.py \
 --saving_steps $saving_steps \
 --gen_device $1 \
 --boosting_train \
+--boosting_method $boosting_method \
 --boosting_col1 \
 --boosting_col2 \
 --boosting_ratio $boosting_ratio \

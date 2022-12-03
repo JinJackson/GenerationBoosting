@@ -10,12 +10,12 @@ output_dir=$source_file"_"$Gen_type"_generated"
 
 if [ $Gen_lang = 'cn' ]
 then
-    nonpara_model_path=/data1/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/LCQMC/midones/nonpara/finetuned-bart-large-chinese/bs8_accumulation4_epoch3_lr2e-5_seed15213
-    para_model_path=/data1/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/LCQMC/midones/para/finetuned-bart-large-chinese/bs8_accumulation4_epoch3_lr2e-5_seed15213
+    nonpara_model_path=/data/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/LCQMC/midones/nonpara/finetuned-bart-large-chinese/bs8_accumulation4_epoch3_lr2e-5_seed15213
+    para_model_path=/data/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/LCQMC/midones/para/finetuned-bart-large-chinese/bs8_accumulation4_epoch3_lr2e-5_seed15213
 elif [ $Gen_lang = 'en' ]
 then
-    nonpara_model_path=/data1/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/quora2/nonpara/finetuned-bart-large/bs8_accumulation2_epoch3_lr2e-5_seed15213
-    para_model_path=/data1/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/quora2/para/finetuned-bart-large/bs8_accumulation2_epoch3_lr2e-5_seed15213
+    nonpara_model_path=/data/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/quora2/nonpara/finetuned-bart-large/bs8_accumulation2_epoch3_lr2e-5_seed15213
+    para_model_path=/data/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/quora2/para/finetuned-bart-large/bs8_accumulation2_epoch3_lr2e-5_seed15213
 fi
 
 

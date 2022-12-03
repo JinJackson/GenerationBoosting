@@ -12,6 +12,7 @@ import subprocess
 
 import transformers
 transformers.logging.set_verbosity_error()
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 from utils import accuracy, f1_score, getLogger, TrainData
 
@@ -62,10 +63,10 @@ def train(model, tokenizer, checkpoint):
     language = None
     if args.boosting_train:
         if args.dataset == 'LCQMC':
-            extra_step_for_one_col = 2000
+            extra_step_for_one_col = 1000
             language = 'cn'
         elif args.dataset == 'quora':
-            extra_step_for_one_col = 3500
+            extra_step_for_one_col = 2000
             language = 'en'
         else:
             raise Exception
@@ -202,7 +203,7 @@ def train(model, tokenizer, checkpoint):
 
                 # runing boosting train
 
-                if global_steps > warmup_steps and args.boosting_train:  
+                if global_steps > warmup_steps and args.boosting_train and args.boosting_method == 'Gen':  
 
                     logger.info('Start boosting train for epoch' + str(epoch) + str(step))
                     # writing badcases
@@ -214,6 +215,16 @@ def train(model, tokenizer, checkpoint):
                     col2_case_file = wrong_case_path + '/col2'
                     
                     with open(bad_case_file, 'w', encoding='utf-8') as writer:
+                        random.shuffle(wrong_case)
+                        if len(wrong_case) <= 10 * args.batch_size:
+                            boosting_nums = len(wrong_case)
+                        elif int(args.boosting_ratio * len(wrong_case)) <= 10 * args.batch_size:
+                            boosting_nums = 10 * args.batch_size
+                        else:
+                            boosting_nums = 10 * args.batch_size
+                            # boosting_nums = int(args.boosting_ratio * len(wrong_case))
+
+                        wrong_case = wrong_case[:boosting_nums]
                         for case in wrong_case:
                             writer.write('\t'.join(case) + '\n')
                     
@@ -227,7 +238,7 @@ def train(model, tokenizer, checkpoint):
                     # boosting_train(model, tokenizer, optimizer, scheduler, epoch, step)
 
                     # device_id = str(args.gen_device)
-                    device_id = '7'
+                    device_id = '4'
                     
                     source_file = args.save_dir + 'wrong_case/epoch_'+ str(epoch) + '_step' + str(step)
 
@@ -290,7 +301,7 @@ def train(model, tokenizer, checkpoint):
                     boost_loss = []
                     boost_step = 0
 
-                    stop_steps = int(args.boosting_ratio * len(boost_dataLoader))
+                    # stop_steps = int(args.boosting_ratio * len(boost_dataLoader))
 
                     for batch in tqdm(boost_dataLoader, desc="boosting training", ncols=50):
                         
@@ -325,8 +336,6 @@ def train(model, tokenizer, checkpoint):
                         scheduler.step()
                         
                         boost_step += 1
-                        if boost_step >= stop_steps:
-                            break
 
 
                     logger.info("loss:"+str(np.array(boost_loss).mean()))
@@ -588,6 +597,7 @@ if __name__ == "__main__":
     parser.add_argument('--boosting_col2', action='store_true')
     parser.add_argument('--boosting_origin', action='store_true')
     parser.add_argument('--boosting_ratio', default=1.0, type=float)
+    parser.add_argument('--boosting_method', default='Gen', type=str)
     parser.add_argument('--dataset', required=True, type=str)
     
 
