@@ -1,6 +1,7 @@
 from torch.utils.data import DataLoader
-from transformers import BertTokenizer, AdamW, get_linear_schedule_with_warmup, RobertaTokenizer, AlbertTokenizer
+from transformers import BertTokenizer, AdamW, get_linear_schedule_with_warmup, RobertaTokenizer, AlbertTokenizer, BartTokenizer, BartForConditionalGeneration
 from MatchModel import BertMatchModel, RobertaMatchModel, AlbertMatchModel
+from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler, DistributedSampler
 import os, random
 import glob
 import torch
@@ -42,7 +43,7 @@ max_test_f1 = 0
 def to_list(x):
     return x.detach().cpu().numpy()
 
-def train(model, tokenizer, checkpoint):
+def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
 
     global max_dev_acc
     global max_dev_f1
@@ -203,17 +204,15 @@ def train(model, tokenizer, checkpoint):
 
                 # runing boosting train
 
-                if global_steps > warmup_steps and args.boosting_train and args.boosting_method == 'Gen':  
-
+                if args.boosting_train:
                     logger.info('Start boosting train for epoch' + str(epoch) + str(step))
+                    logger.info('boosting method == ' + attack_method)
+                    
                     # writing badcases
                     wrong_case_path = args.save_dir + 'wrong_case/epoch_'+ str(epoch) + '_step' + str(step)
                     if not os.path.exists(wrong_case_path):
                         os.makedirs(wrong_case_path)
                     bad_case_file = wrong_case_path + '/badcases'
-                    col1_case_file = wrong_case_path + '/col1'
-                    col2_case_file = wrong_case_path + '/col2'
-                    
                     with open(bad_case_file, 'w', encoding='utf-8') as writer:
                         random.shuffle(wrong_case)
                         if len(wrong_case) <= 10 * args.batch_size:
@@ -228,58 +227,73 @@ def train(model, tokenizer, checkpoint):
                         for case in wrong_case:
                             writer.write('\t'.join(case) + '\n')
                     
-                    with open(col1_case_file, 'w', encoding='utf-8') as writer1:
-                        with open(col2_case_file, 'w', encoding='utf-8') as writer2:
-                            for case in wrong_case:
-                                sent1, sent2, label = case
-                                writer1.write(sent1.strip() + '\n')
-                                writer2.write(sent2.strip() + '\n')
-        
-                    # boosting_train(model, tokenizer, optimizer, scheduler, epoch, step)
-
-                    # device_id = str(args.gen_device)
-                    device_id = '4'
                     
-                    source_file = args.save_dir + 'wrong_case/epoch_'+ str(epoch) + '_step' + str(step)
+                    if args.boosting_method == 'Gen':
+                        
+                        para_model = attack_args['para_model']
+                        para_tokenizer = attack_args['para_tokenizer']
+                        nonpara_model = attack_args['nonpara_model']
+                        nonpara_tokenizer = attack_args['nonpara_tokenizer']
 
-                    if args.boosting_col1:
-                        # source_file = args.save_dir + 'wrong_case/epoch_'+ str(epoch) + '_step' + str(step) + '/col1'
-                        command_para = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'para' + ' ' + source_file + '/col1' + ' ' + language
-                        command_nonpara = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'nonpara' + ' ' + source_file + '/col1' + ' ' + language
-                        merge_del_repeat = 'sh ./GenText/del_repeat_cat_merge_col1.sh ' + source_file
 
-                        # check_output应该是串行执行，或者Popen() + wait()
+                        col1_case_file = wrong_case_path + '/col1'
+                        col2_case_file = wrong_case_path + '/col2'
+                    
+                        with open(col1_case_file, 'w', encoding='utf-8') as writer1:
+                            with open(col2_case_file, 'w', encoding='utf-8') as writer2:
+                                for case in wrong_case:
+                                    sent1, sent2, label = case
+                                    writer1.write(sent1.strip() + '\n')
+                                    writer2.write(sent2.strip() + '\n')
+            
+                        # boosting_train(model, tokenizer, optimizer, scheduler, epoch, step)
 
-                        subprocess.check_output(command_para, shell=True)
-                        subprocess.check_output(command_nonpara, shell=True)
-                        subprocess.check_output(merge_del_repeat, shell=True)
-                    
-                    
-                    if args.boosting_col2:
-                        command_para = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'para' + ' ' + source_file + '/col2' + ' ' + language
-                        command_nonpara = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'nonpara' + ' ' + source_file + '/col2' + ' ' + language
-                        merge_del_repeat = 'sh ./GenText/del_repeat_cat_merge_col2.sh ' + source_file
+                        # device_id = str(args.gen_device)
+                        device_id = '4'
+                        
+                        source_file = args.save_dir + 'wrong_case/epoch_'+ str(epoch) + '_step' + str(step)
 
-                        subprocess.check_output(command_para, shell=True)
-                        subprocess.check_output(command_nonpara, shell=True)
-                        subprocess.check_output(merge_del_repeat, shell=True)
+                        if args.boosting_col1:
+                            # source_file = args.save_dir + 'wrong_case/epoch_'+ str(epoch) + '_step' + str(step) + '/col1'
+                            command_para = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'para' + ' ' + source_file + '/col1' + ' ' + language
+                            command_nonpara = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'nonpara' + ' ' + source_file + '/col1' + ' ' + language
+                            merge_del_repeat = 'sh ./GenText/del_repeat_cat_merge_col1.sh ' + source_file
 
-                    
-                    if args.boosting_col1 and args.boosting_col2:
-                        if args.boosting_origin:
-                            command_merge = 'cat ' + source_file + '/badcases ' + source_file + '/col1_all ' + source_file + '/col2_all > ' + source_file + '/origin_col1_col2_merge_all'
-                            subprocess.check_output(command_merge, shell=True)
-                            boost_file = source_file + '/origin_col1_col2_merge_all'
-                        else:
-                            command_merge = 'cat ' + source_file + '/col1_all ' + source_file + '/col2_all > ' + source_file + '/col1_col2_merge_all'
-                            subprocess.check_output(command_merge, shell=True)
-                            boost_file = source_file + '/col1_col2_merge_all' 
-                    
-                    elif args.boosting_col1:
-                        boost_file = source_file + '/col1_all'
-                    
-                    elif args.boosting_col2:
-                        boost_file = source_file + '/col2_all'
+                            # check_output应该是串行执行，或者Popen() + wait()
+
+                            subprocess.check_output(command_para, shell=True)
+                            subprocess.check_output(command_nonpara, shell=True)
+                            subprocess.check_output(merge_del_repeat, shell=True)
+                        
+                        
+                        if args.boosting_col2:
+                            command_para = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'para' + ' ' + source_file + '/col2' + ' ' + language
+                            command_nonpara = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'nonpara' + ' ' + source_file + '/col2' + ' ' + language
+                            merge_del_repeat = 'sh ./GenText/del_repeat_cat_merge_col2.sh ' + source_file
+
+                            subprocess.check_output(command_para, shell=True)
+                            subprocess.check_output(command_nonpara, shell=True)
+                            subprocess.check_output(merge_del_repeat, shell=True)
+
+                        
+                        if args.boosting_col1 and args.boosting_col2:
+                            if args.boosting_origin:
+                                command_merge = 'cat ' + source_file + '/badcases ' + source_file + '/col1_all ' + source_file + '/col2_all > ' + source_file + '/origin_col1_col2_merge_all'
+                                subprocess.check_output(command_merge, shell=True)
+                                boost_file = source_file + '/origin_col1_col2_merge_all'
+                            else:
+                                command_merge = 'cat ' + source_file + '/col1_all ' + source_file + '/col2_all > ' + source_file + '/col1_col2_merge_all'
+                                subprocess.check_output(command_merge, shell=True)
+                                boost_file = source_file + '/col1_col2_merge_all' 
+                        
+                        elif args.boosting_col1:
+                            boost_file = source_file + '/col1_all'
+                        
+                        elif args.boosting_col2:
+                            boost_file = source_file + '/col2_all'
+
+                    elif attack_method == 'TextAttack':
+
 
                     
                     boost_train_data = TrainData(data_file=boost_file,
@@ -652,8 +666,48 @@ if __name__ == "__main__":
                                               do_lower_case=args.do_lower_case)
         model = MatchModel.from_pretrained(args.model_type if checkpoint == -1 else checkpoint_dir)
         model.to(args.device)
+
+
         # 训练
-        train(model, tokenizer, checkpoint)
+        if args.boosting_train:
+            if args.boosting_method == 'Gen':
+                model_class = BartForConditionalGeneration
+                if args.dataset == 'LCQMC':
+                    gen_language = 'cn'
+                    gen_max_length = 32
+                    tokenizer_class = BertTokenizer
+                    nonpara_model_path=r"/data/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/LCQMC/midones/nonpara/finetuned-bart-large-chinese/bs8_accumulation4_epoch3_lr2e-5_seed15213"
+                    para_model_path=r"/data/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/LCQMC/midones/para/finetuned-bart-large-chinese/bs8_accumulation4_epoch3_lr2e-5_seed15213"
+                elif args.dataset == 'quora':
+                    gen_language = 'en'
+                    gen_max_length = 128
+                    tokenizer_class = BartTokenizer
+                    nonpara_model_path=r"/data/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/quora2/nonpara/finetuned-bart-large/bs8_accumulation2_epoch3_lr2e-5_seed15213"
+                    para_model_path=r"/data/zljin/experiments/Seq2Seq2Generation/src/Finetune/result/quora2/para/finetuned-bart-large/bs8_accumulation2_epoch3_lr2e-5_seed15213"
+                else:
+                    assert False, 'dataset should be in [LCQMC, quora]'
+                
+                para_model = model_class.from_pretrained(para_model_path).to(args.device)
+                nonpara_model = model_class.from_pretrained(nonpara_model_path).to(args.device)
+                para_tokenizer = tokenizer_class.from_pretrained(para_model_path)
+                nonpara_tokenizer = tokenizer_class.from_pretrained(nonpara_model_path)
+
+                attack_args = {
+                    "para_model": para_model,
+                    "nonpara_model": nonpara_model,
+                    "para_tokenizer": para_tokenizer,
+                    "nonpara_tokenizer": nonpara_tokenizer,
+                    "max_length": gen_max_length,
+                    "language": gen_language
+                }
+                train(model, tokenizer, checkpoint, attack_method='Gen', attack_args=attack_args)
+            elif args.boosting_method == 'TextAttack':
+                pass
+            else:
+                assert False, 'boosting method should be in [Gen, TextAttack]'
+
+        else:
+            train(model, tokenizer, checkpoint, attack_method=None, attack_args=None)
 
     else:
         # eval：指定模型
