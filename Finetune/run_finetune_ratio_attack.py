@@ -251,30 +251,25 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
                         # boosting_train(model, tokenizer, optimizer, scheduler, epoch, step)
 
                         # device_id = str(args.gen_device)
-                        device_id = '4'
+                        # device_id = '4'
                         
                         source_file = args.save_dir + 'wrong_case/epoch_'+ str(epoch) + '_step' + str(step)
 
                         if args.boosting_col1:
                             # source_file = args.save_dir + 'wrong_case/epoch_'+ str(epoch) + '_step' + str(step) + '/col1'
-                            command_para = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'para' + ' ' + source_file + '/col1' + ' ' + language
-                            command_nonpara = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'nonpara' + ' ' + source_file + '/col1' + ' ' + language
+                            gen_from_file(para_model, para_tokenizer, col1_case_file, gen_language, gen_max_length, 'para')
+                            gen_from_file(nonpara_model, nonpara_tokenizer, col1_case_file, gen_language, gen_max_length, 'nonpara')
                             merge_del_repeat = 'sh ./GenText/del_repeat_cat_merge_col1.sh ' + source_file
 
                             # check_output应该是串行执行，或者Popen() + wait()
-
-                            subprocess.check_output(command_para, shell=True)
-                            subprocess.check_output(command_nonpara, shell=True)
                             subprocess.check_output(merge_del_repeat, shell=True)
                         
                         
                         if args.boosting_col2:
-                            command_para = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'para' + ' ' + source_file + '/col2' + ' ' + language
-                            command_nonpara = 'sh ./GenText/generation_from_file.sh '+ device_id + ' ' + 'nonpara' + ' ' + source_file + '/col2' + ' ' + language
+                            gen_from_file(para_model, para_tokenizer, col2_case_file, gen_language, gen_max_length, 'para')
+                            gen_from_file(nonpara_model, nonpara_tokenizer, col2_case_file, gen_language, gen_max_length, 'nonpara')
                             merge_del_repeat = 'sh ./GenText/del_repeat_cat_merge_col2.sh ' + source_file
 
-                            subprocess.check_output(command_para, shell=True)
-                            subprocess.check_output(command_nonpara, shell=True)
                             subprocess.check_output(merge_del_repeat, shell=True)
 
                         
@@ -295,6 +290,7 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
                             boost_file = source_file + '/col2_all'
 
                     elif attack_method == 'TextAttack':
+                        pass
 
 
                     
@@ -621,25 +617,22 @@ def gen_from_file(model, tokenizer, file_path, language, max_length, gen_type):
                 preds += gen_text
     # written_file = args.data_dir + '_generated'
     original_data = []
-    with open(args.data_dir, 'r', encoding='utf-8') as reader:
+    with open(file_path, 'r', encoding='utf-8') as reader:
         lines = reader.readlines()
         original_data = [line.strip() for line in lines]
     
-    if args.gen_type not in ['para', 'nonpara']:
+    if gen_type not in ['para', 'nonpara']:
         print('gen_type wrong, plz input \"para\" or \"nonpara\"')
     
-    label = 1 if args.gen_type == 'para' else 0
+    label = 1 if gen_type == 'para' else 0
     print(len(original_data), len(preds))
     assert len(original_data) == len(preds)
 
-    written_file = args.output_dir
+    written_file = file_path + "_" + gen_type + "_generated"
     
     with open(written_file, "w", encoding='utf-8') as writer:
         for origin, gen in zip(original_data, preds):
             gen = sep_sign.join(gen.split())
-            if origin.rstrip('？').rstrip('?').rstrip('。').rstrip('！').rstrip('.') == gen.rstrip('？').rstrip('?').rstrip('。').rstrip('！').rstrip('.'):
-                continue
-
             writer.write(origin + '\t' + gen + '\t' + str(label) + '\n')
     
 
