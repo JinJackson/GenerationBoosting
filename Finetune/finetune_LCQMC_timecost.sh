@@ -8,10 +8,11 @@ epochs=3
 seed=4096
 learning_rate='2e-5'
 boosting_method='Gen'
-boosting_ratio=0.25
+boosting_ratio=0.5
 saving_steps=500
+boarder=10
 
-exp_type=test_time_cost
+exp_type=newboosting_10bs_afterwarmup
 
 
 train_file="../Data/$dataset/clean/train_clean.txt"
@@ -21,7 +22,7 @@ dev_file="../Data/$dataset/clean/dev_clean.txt"
 test_file="../Data/$dataset/clean/test_clean.txt"
 
 
-output_dir="/data/zljin/experiments/Paraphrase/Finetune/result/$dataset/$exp_type/$model_name/""bs"$batch_size"_epoch"$epochs"_lr"$learning_rate"_savingsteps"$saving_steps"_seed"$seed"_ratio"$boosting_ratio/
+output_dir="/data/zljin/experiments/Paraphrase/Finetune/result/$dataset/$exp_type/$model_name/""boosting_method$boosting_method""_boarder$boarder""_bs"$batch_size"_epoch"$epochs"_lr"$learning_rate"_savingsteps"$saving_steps"_seed"$seed"_ratio"$boosting_ratio/
 
 
 echo $train_file
@@ -46,5 +47,6 @@ CUDA_VISIBLE_DEVICES=$1 python run_finetune_ratio_attack.py \
 --boosting_col1 \
 --boosting_col2 \
 --boosting_ratio $boosting_ratio \
+--boarder $boarder \
 --warmup_steps 0.1
 # --boosting_origin \

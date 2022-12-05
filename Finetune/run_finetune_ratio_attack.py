@@ -215,12 +215,12 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
                     bad_case_file = wrong_case_path + '/badcases'
                     with open(bad_case_file, 'w', encoding='utf-8') as writer:
                         random.shuffle(wrong_case)
-                        if len(wrong_case) <= 10 * args.batch_size:
+                        if len(wrong_case) <= args.boarder * args.batch_size:
                             boosting_nums = len(wrong_case)
-                        elif int(args.boosting_ratio * len(wrong_case)) <= 10 * args.batch_size:
-                            boosting_nums = 10 * args.batch_size
+                        elif int(args.boosting_ratio * len(wrong_case)) <= args.boarder * args.batch_size:
+                            boosting_nums = args.boarder * args.batch_size
                         else:
-                            boosting_nums = 10 * args.batch_size
+                            boosting_nums = args.boarder * args.batch_size
                             # boosting_nums = int(args.boosting_ratio * len(wrong_case))
 
                         wrong_case = wrong_case[:boosting_nums]
@@ -590,7 +590,7 @@ def gen_from_file(model, tokenizer, file_path, language, max_length, gen_type):
         sep_sign = ' '
     else:
         assert False, 'language should be in [cn, en]'
-    eval_dataset = load_and_cache_examples(tokenizer)
+    eval_dataset = load_and_cache_examples(tokenizer, file_path)
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=batch_size, collate_fn=eval_dataset.collate_fn)
 
@@ -669,6 +669,7 @@ if __name__ == "__main__":
     parser.add_argument('--boosting_origin', action='store_true')
     parser.add_argument('--boosting_ratio', default=1.0, type=float)
     parser.add_argument('--boosting_method', default='Gen', type=str)
+    parser.add_argument('--boarder', default=10, type=int)
     parser.add_argument('--dataset', required=True, type=str)
     
 
