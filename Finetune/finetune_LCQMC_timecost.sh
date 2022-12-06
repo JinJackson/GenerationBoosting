@@ -8,11 +8,12 @@ epochs=3
 seed=4096
 learning_rate='2e-5'
 boosting_method='Gen'
-boosting_ratio=0.5
+boosting_ratio=0.25
 saving_steps=500
-boarder=10
+boarder=20
 
-exp_type=newboosting_10bs_afterwarmup
+# exp_type=newboosting_ratiaostop_afterwarmup
+exp_type=newboosting_boarderbs_afterwarmup
 
 
 train_file="../Data/$dataset/clean/train_clean.txt"
