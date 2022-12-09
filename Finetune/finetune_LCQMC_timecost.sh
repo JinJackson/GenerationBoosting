@@ -8,12 +8,14 @@ epochs=3
 seed=4096
 learning_rate='2e-5'
 boosting_method='Gen'
+# boosting_method='TextAttack'
+# attack_recipe=''
 boosting_ratio=0.25
-saving_steps=500
-boarder=20
+saving_steps=250
+boarder=20 # bu yong le
 
-# exp_type=newboosting_ratiaostop_afterwarmup
-exp_type=newboosting_boarderbs_afterwarmup
+exp_type=newboosting_ratiaostop_afterwarmup_nobsboarder
+# exp_type=test_textattack
 
 
 train_file="../Data/$dataset/clean/train_clean.txt"

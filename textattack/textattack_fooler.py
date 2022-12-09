@@ -15,11 +15,15 @@ data = [(("A man is sleeping on the bed.", "The man is almost sleeping."), 1), (
 dataset = textattack.datasets.Dataset(data, input_columns=['text1', 'text2'])
 
 print('2')
-
-attack = textattack.attack_recipes.PWWSRen2019.build(model_wrapper)
+#PWWSRen2019
+#TextBuggerLi2018
+#BERTAttackLi2020
+attack = textattack.attack_recipes.A2TYoo2021.build(model_wrapper)
 attack_args1 = textattack.AttackArgs(num_examples=len(dataset), log_to_csv="log1.csv", random_seed=765, checkpoint_interval=5, checkpoint_dir="checkpoints", disable_stdout=True, log_to_txt='log1.txt')
 attack_args2 = textattack.AttackArgs(num_examples=len(dataset), log_to_csv="log2.csv", random_seed=1024, checkpoint_interval=5, checkpoint_dir="checkpoints", disable_stdout=True, log_to_txt='log2.txt')
 print('3')
+
+
 
 import time
 print('start')
@@ -34,8 +38,12 @@ end_time = time.time()
 
 print(end_time - start_time)
 
+# import pdb; pdb.set_trace()
 print(res1[0].original_text(), res1[0].perturbed_text())
-print(res2[0].original_text(), res2[0].perturbed_text())
+
+#'Text1: A man is sleeping on the bed.\nText2: The man is almost sleeping.'
+
+# print(res2[0].original_text(), res2[0].perturbed_text())
 # if isinstance(res1[0], SuccessfulAttackResult):
 #     perturbed_text=res[0].perturbed_text()
 #     original_text = res[0].original_text()

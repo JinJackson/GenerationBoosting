@@ -1,5 +1,5 @@
 from torch.utils.data import DataLoader
-from transformers import BertTokenizer, AdamW, get_linear_schedule_with_warmup, RobertaTokenizer, AlbertTokenizer, BartTokenizer, BartForConditionalGeneration
+from transformers import BertTokenizer, AdamW, get_linear_schedule_with_warmup, RobertaTokenizer, AlbertTokenizer, BartTokenizer, BartForConditionalGeneration, AutoModelForSequenceClassification, AutoTokenizer
 from MatchModel import BertMatchModel, RobertaMatchModel, AlbertMatchModel
 from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler, DistributedSampler
 import os, random
@@ -10,7 +10,7 @@ import numpy as np
 from tqdm import tqdm
 import argparse
 import subprocess
-
+import time
 import transformers
 transformers.logging.set_verbosity_error()
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -112,6 +112,9 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
 
     logger.debug("  Start Batch = %d", checkpoint)
     global_steps = 0
+    all_boosting_time = 0
+    all_extra_train_time = 0
+    all_extra_example = 0
     for epoch in range(checkpoint, args.epochs):
         model.train()
         epoch_loss = []
@@ -215,20 +218,22 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
                     bad_case_file = wrong_case_path + '/badcases'
                     with open(bad_case_file, 'w', encoding='utf-8') as writer:
                         random.shuffle(wrong_case)
-                        if len(wrong_case) <= args.boarder * args.batch_size:
-                            boosting_nums = len(wrong_case)
-                        elif int(args.boosting_ratio * len(wrong_case)) <= args.boarder * args.batch_size:
-                            boosting_nums = args.boarder * args.batch_size
-                        else:
-                            boosting_nums = args.boarder * args.batch_size
-                            # boosting_nums = int(args.boosting_ratio * len(wrong_case))
+                        # if len(wrong_case) <= args.boarder * args.batch_size:
+                        #     boosting_nums = len(wrong_case)
+                        # elif int(args.boosting_ratio * len(wrong_case)) <= args.boarder * args.batch_size:
+                        #     boosting_nums = args.boarder * args.batch_size
+                        # else:
+                        #     boosting_nums = args.boarder * args.batch_size
+                        boosting_nums = int(args.boosting_ratio * len(wrong_case))
 
                         wrong_case = wrong_case[:boosting_nums]
+                        all_extra_example += len(wrong_case)
+
                         for case in wrong_case:
                             writer.write('\t'.join(case) + '\n')
                     
                     
-                    if args.boosting_method == 'Gen':
+                    if attack_method == 'Gen':
                         
                         para_model = attack_args['para_model']
                         para_tokenizer = attack_args['para_tokenizer']
@@ -254,6 +259,8 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
                         # device_id = '4'
                         
                         source_file = args.save_dir + 'wrong_case/epoch_'+ str(epoch) + '_step' + str(step)
+
+                        start_time = time.time()
 
                         if args.boosting_col1:
                             # source_file = args.save_dir + 'wrong_case/epoch_'+ str(epoch) + '_step' + str(step) + '/col1'
@@ -289,11 +296,29 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
                         elif args.boosting_col2:
                             boost_file = source_file + '/col2_all'
 
-                    elif attack_method == 'TextAttack':
-                        pass
+                        end_time = time.time()
 
+                        boosting_time = end_time - start_time
+
+                        all_boosting_time += boosting_time
+                        
+                    
+                    elif attack_method == 'TextAttack':
+                        start_time = time.time()
+                        attack = attack_args['attack']
+                        attackargs = attack_args['attackargs']
+                        res = textattack_from_file(attack=attack, attack_args=attackargs, file_path=bad_case_file)
+                        
+                        boost_file = bad_case_file + '_attackfile'
+
+                        end_time = time.time()
+
+                        boosting_time = end_time - start_time
+                        
+                        all_boosting_time += boosting_time
 
                     
+                    start_train_time = time.time()
                     boost_train_data = TrainData(data_file=boost_file,
                                                 max_length=args.max_length,
                                                 tokenizer=tokenizer,
@@ -302,6 +327,13 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
                     boost_dataLoader = DataLoader(dataset=boost_train_data,
                                                 batch_size=args.batch_size,
                                                 shuffle=True)
+                    end_train_time = time.time()
+                    
+                    boosting_train_time = end_train_time - start_train_time
+                    
+                    all_extra_train_time += boosting_train_time
+
+
                     # import pdb; pdb.set_trace()
                     logger.debug("***** Running boosting train = %d *****", epoch)
                     logger.debug("  Num examples = %d", len(boost_dataLoader))
@@ -416,6 +448,13 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
             '【TEST】Train Epoch %d, round %d: train_loss=%.4f, acc=%.4f, f1=%.4f' % (
                 epoch, step, test_loss, test_acc, test_f1))
         
+    # all_boosting_time = 0
+    # all_extra_train_time = 0
+    # all_extra_example = 0
+    logger.info('【all_boosting_generation_time】：%.4f' % (all_boosting_time))
+    logger.info('【all_extra_training_time】：%.4f' % (all_extra_train_time))
+    logger.info('【all_extra_example】：%.4f' % (all_extra_example))
+    logger.info('【generation_time_for_each_example】: %.4f' % (all_boosting_time/all_extra_example))
 
     logger.info('【BEST TEST ACC】: %.4f,   【BEST TEST F1】: %.4f' % (max_test_acc, max_test_f1))
     logger.info('【BEST DEV ACC】: %.4f,   【BEST DEV F1】: %.4f' % (max_dev_acc, max_dev_f1))
@@ -637,6 +676,36 @@ def gen_from_file(model, tokenizer, file_path, language, max_length, gen_type):
     
 
 
+def textattack_from_file(attack, attack_args, file_path):
+    #data = [(("A man is sleeping on the bed.", "The man is almost sleeping."), 1), (("The man is almost sleeping.", "A man is sleeping on the bed."), 0)]
+    with open(file_path, 'r', encoding='utf-8') as reader:
+        lines = reader.readlines()
+    raw_data = [line.split('\t') for line in lines]
+    data = []
+    for a_data in raw_data:
+        data.append(((a_data[0], a_data[1]), int(a_data[2])))
+        data.append(((a_data[1], a_data[0]), int(a_data[2])))
+    dataset = textattack.datasets.Dataset(data, input_columns=['text1', 'text2'])
+    attacker = textattack.Attacker(attack, dataset, attack_args)
+    attack_res = attacker.attack_dataset()
+    # for result in attack_res:
+    print('attack_res length == data length?', len(attack_res) == len(dataset))
+    attack_data = []
+    for perturbed_res, original in zip(attack_res, data):
+        perturbed_text1, perturbed_text2 = [t[7:] for t in perturbed_res.perturbed_text().split('\n')]
+        label = str(data[1])
+        attack_data.append([perturbed_text1, perturbed_text2, label])
+    written_file = file_path + '_attackfile'
+    with open(written_file, 'w', encoding='utf-8') as writer:
+        for data in attack_data:
+            writer.write('\t'.join(data) + '\n')
+    return True
+        
+
+
+    
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
@@ -760,7 +829,27 @@ if __name__ == "__main__":
                 }
                 train(model, tokenizer, checkpoint, attack_method='Gen', attack_args=attack_args)
             elif args.boosting_method == 'TextAttack':
-                pass
+                logger.debug("loading textattack")
+                import textattack
+                logger.debug("loading attack model")
+                attack_model = AutoModelForSequenceClassification.from_pretrained('textattack/bert-base-uncased-QQP')
+                attack_tokenizer = AutoTokenizer.from_pretrained('textattack/bert-base-uncased-QQP')
+                attack_model.to(args.device)
+                logger.debug("wrappering")
+                model_wrapper = textattack.models.wrappers.HuggingFaceModelWrapper(attack_model, attack_tokenizer)
+                logger.debug("loading recipes and attack args")
+                attack = textattack.attack_recipes.PWWSRen2019.build(model_wrapper)
+                attackargs = textattack.AttackArgs(num_examples=-1, random_seed=765, checkpoint_interval=None, disable_stdout=True)
+                attack_args = {
+                    'attack': attack,
+                    'attackargs':attackargs
+                }
+                logger.debug('loading textattack done, start training')
+                train(model, tokenizer, checkpoint, attack_method="TextAttack", attack_args=attack_args)
+
+
+                # from textattack.attack_results import SuccessfulAttackResult, FailedAttackResult
+                
             else:
                 assert False, 'boosting method should be in [Gen, TextAttack]'
 

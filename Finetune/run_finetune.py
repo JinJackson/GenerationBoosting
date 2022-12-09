@@ -227,7 +227,7 @@ def train(model, tokenizer, checkpoint):
                     # boosting_train(model, tokenizer, optimizer, scheduler, epoch, step)
 
                     # device_id = str(args.gen_device)
-                    device_id = '7'
+                    device_id = '1'
                     
                     source_file = args.save_dir + 'wrong_case/epoch_'+ str(epoch) + '_step' + str(step)
 
