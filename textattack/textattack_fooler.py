@@ -2,23 +2,28 @@ import transformers
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 
-model = AutoModelForSequenceClassification.from_pretrained('textattack/bert-base-uncased-QQP')
-tokenizer = AutoTokenizer.from_pretrained('textattack/bert-base-uncased-QQP')
+# model = AutoModelForSequenceClassification.from_pretrained('textattack/bert-base-uncased-QQP')
+# tokenizer = AutoTokenizer.from_pretrained('textattack/bert-base-uncased-QQP')
+
+model = AutoModelForSequenceClassification.from_pretrained('bert-base-chinese')
+tokenizer = AutoTokenizer.from_pretrained('bert-base-chinese')
+#dyyyyyyyy/LCQMC_BERT-base-Chinese 
+
 
 import textattack
 from textattack.attack_results import SuccessfulAttackResult, FailedAttackResult
 
 print('1')
 model_wrapper = textattack.models.wrappers.HuggingFaceModelWrapper(model, tokenizer)
-
-data = [(("A man is sleeping on the bed.", "The man is almost sleeping."), 1), (("The man is almost sleeping.", "A man is sleeping on the bed."), 0)]
+#什么牌子口红好用不贵	什么牌子的口红好用又便宜	1
+data = [(("怎么查询银行卡余额", "如何查询银行卡余额"), 1), (("什么牌子口红好用不贵", "什么牌子的口红好用又便宜"), 1)]
 dataset = textattack.datasets.Dataset(data, input_columns=['text1', 'text2'])
 
 print('2')
 #PWWSRen2019
 #TextBuggerLi2018
 #BERTAttackLi2020
-attack = textattack.attack_recipes.A2TYoo2021.build(model_wrapper)
+attack = textattack.attack_recipes.BERTAttackLi2020.build(model_wrapper)
 attack_args1 = textattack.AttackArgs(num_examples=len(dataset), log_to_csv="log1.csv", random_seed=765, checkpoint_interval=5, checkpoint_dir="checkpoints", disable_stdout=True, log_to_txt='log1.txt')
 attack_args2 = textattack.AttackArgs(num_examples=len(dataset), log_to_csv="log2.csv", random_seed=1024, checkpoint_interval=5, checkpoint_dir="checkpoints", disable_stdout=True, log_to_txt='log2.txt')
 print('3')

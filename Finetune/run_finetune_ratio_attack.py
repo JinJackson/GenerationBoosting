@@ -12,6 +12,7 @@ import argparse
 import subprocess
 import time
 import transformers
+import re
 transformers.logging.set_verbosity_error()
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
@@ -115,6 +116,7 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
     all_boosting_time = 0
     all_extra_train_time = 0
     all_extra_example = 0
+    real_gen_nums = 0
     for epoch in range(checkpoint, args.epochs):
         model.train()
         epoch_loss = []
@@ -227,14 +229,15 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
                         boosting_nums = int(args.boosting_ratio * len(wrong_case))
 
                         wrong_case = wrong_case[:boosting_nums]
-                        all_extra_example += len(wrong_case)
+
+                        all_extra_example += (len(wrong_case) * 2)
 
                         for case in wrong_case:
                             writer.write('\t'.join(case) + '\n')
                     
                     
                     if attack_method == 'Gen':
-                        
+                        real_gen_nums = all_extra_example
                         para_model = attack_args['para_model']
                         para_tokenizer = attack_args['para_tokenizer']
                         nonpara_model = attack_args['nonpara_model']
@@ -252,6 +255,7 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
                                     sent1, sent2, label = case
                                     writer1.write(sent1.strip() + '\n')
                                     writer2.write(sent2.strip() + '\n')
+                        
             
                         # boosting_train(model, tokenizer, optimizer, scheduler, epoch, step)
 
@@ -307,7 +311,7 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
                         start_time = time.time()
                         attack = attack_args['attack']
                         attackargs = attack_args['attackargs']
-                        res = textattack_from_file(attack=attack, attack_args=attackargs, file_path=bad_case_file)
+                        real_gen_nums = textattack_from_file(attack=attack, attack_args=attackargs, file_path=bad_case_file, extra_nums=real_gen_nums)
                         
                         boost_file = bad_case_file + '_attackfile'
 
@@ -454,7 +458,8 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
     logger.info('【all_boosting_generation_time】：%.4f' % (all_boosting_time))
     logger.info('【all_extra_training_time】：%.4f' % (all_extra_train_time))
     logger.info('【all_extra_example】：%.4f' % (all_extra_example))
-    logger.info('【generation_time_for_each_example】: %.4f' % (all_boosting_time/all_extra_example))
+    logger.info('【real_gen_example】：%.4f' % (real_gen_nums))
+    logger.info('【generation_time_for_each_example】: %.4f' % (all_boosting_time/real_gen_nums))
 
     logger.info('【BEST TEST ACC】: %.4f,   【BEST TEST F1】: %.4f' % (max_test_acc, max_test_f1))
     logger.info('【BEST DEV ACC】: %.4f,   【BEST DEV F1】: %.4f' % (max_dev_acc, max_dev_f1))
@@ -676,7 +681,7 @@ def gen_from_file(model, tokenizer, file_path, language, max_length, gen_type):
     
 
 
-def textattack_from_file(attack, attack_args, file_path):
+def textattack_from_file(attack, attack_args, file_path, extra_nums):
     #data = [(("A man is sleeping on the bed.", "The man is almost sleeping."), 1), (("The man is almost sleeping.", "A man is sleeping on the bed."), 0)]
     with open(file_path, 'r', encoding='utf-8') as reader:
         lines = reader.readlines()
@@ -691,15 +696,24 @@ def textattack_from_file(attack, attack_args, file_path):
     # for result in attack_res:
     print('attack_res length == data length?', len(attack_res) == len(dataset))
     attack_data = []
+    tmp_nums = extra_nums
     for perturbed_res, original in zip(attack_res, data):
-        perturbed_text1, perturbed_text2 = [t[7:] for t in perturbed_res.perturbed_text().split('\n')]
-        label = str(data[1])
+        if not isinstance(perturbed_res, SkippedAttackResult):
+            tmp_nums += 1
+        try:
+            perturbed_text1, perturbed_text2 = [t[7:] for t in perturbed_res.perturbed_text().split('\n')]
+        except:
+            re_tool = re.compile(r"<S.*>")
+            perturbed_text = re_tool.sub('\n', perturbed_res.perturbed_text())
+            perturbed_text1, perturbed_text2 = [t for t in perturbed_text.split('\n')]
+
+        label = str(original[1])
         attack_data.append([perturbed_text1, perturbed_text2, label])
     written_file = file_path + '_attackfile'
     with open(written_file, 'w', encoding='utf-8') as writer:
         for data in attack_data:
             writer.write('\t'.join(data) + '\n')
-    return True
+    return tmp_nums
         
 
 
@@ -831,6 +845,7 @@ if __name__ == "__main__":
             elif args.boosting_method == 'TextAttack':
                 logger.debug("loading textattack")
                 import textattack
+                from textattack.attack_results import SuccessfulAttackResult, FailedAttackResult, SkippedAttackResult
                 logger.debug("loading attack model")
                 attack_model = AutoModelForSequenceClassification.from_pretrained('textattack/bert-base-uncased-QQP')
                 attack_tokenizer = AutoTokenizer.from_pretrained('textattack/bert-base-uncased-QQP')
@@ -838,7 +853,10 @@ if __name__ == "__main__":
                 logger.debug("wrappering")
                 model_wrapper = textattack.models.wrappers.HuggingFaceModelWrapper(attack_model, attack_tokenizer)
                 logger.debug("loading recipes and attack args")
-                attack = textattack.attack_recipes.PWWSRen2019.build(model_wrapper)
+                attack = textattack.attack_recipes.BERTAttackLi2020.build(model_wrapper)
+                #TextBuggerLi2018
+                #PWWSRen2019
+                #BERTAttackLi2020
                 attackargs = textattack.AttackArgs(num_examples=-1, random_seed=765, checkpoint_interval=None, disable_stdout=True)
                 attack_args = {
                     'attack': attack,
