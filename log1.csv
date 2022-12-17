@@ -1,3 +1,0 @@
-"original_text","perturbed_text","original_score","perturbed_score","original_output","perturbed_output","ground_truth_output","num_queries","result_type"
-"[[[[Text1]]]]: A man is sleeping on the bed.<SPLIT>[[[[Text2]]]]: The [[man]] is almost sleeping.","[[[[Text1]]]]: A man is sleeping on the bed.<SPLIT>[[[[Text2]]]]: The [[one]] is almost sleeping.",0.4898078441619873,0.6768734455108643,1,0,1,52,"Successful"
-"[[[[Text1]]]]: The man is almost sleeping.<SPLIT>[[[[Text2]]]]: [[A]] man is sleeping on the bed.","[[[[Text1]]]]: The man is almost sleeping.<SPLIT>[[[[Text2]]]]: [[still]] man is sleeping on the bed.",0.007875621318817139,0.8775634169578552,0,1,0,47,"Successful"

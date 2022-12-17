@@ -11,7 +11,7 @@ boosting_method='Gen'
 # boosting_method='TextAttack'
 # attack_recipe=''
 boosting_ratio=0.25
-saving_steps=250
+saving_steps=7000    
 boarder=20 # bu yong le
 
 exp_type=newboosting_ratiaostop_afterwarmup_nobsboarder

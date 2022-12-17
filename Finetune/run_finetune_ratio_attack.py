@@ -331,12 +331,6 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
                     boost_dataLoader = DataLoader(dataset=boost_train_data,
                                                 batch_size=args.batch_size,
                                                 shuffle=True)
-                    end_train_time = time.time()
-                    
-                    boosting_train_time = end_train_time - start_train_time
-                    
-                    all_extra_train_time += boosting_train_time
-
 
                     # import pdb; pdb.set_trace()
                     logger.debug("***** Running boosting train = %d *****", epoch)
@@ -384,7 +378,12 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
                         scheduler.step()
                         
                         boost_step += 1
-
+                    
+                    end_train_time = time.time()
+                    
+                    boosting_train_time = end_train_time - start_train_time
+                    
+                    all_extra_train_time += boosting_train_time
 
                     logger.info("loss:"+str(np.array(boost_loss).mean()))
                     logger.info('learning_rate:' + str(optimizer.state_dict()['param_groups'][0]['lr']))
@@ -856,6 +855,9 @@ if __name__ == "__main__":
                 attack = textattack.attack_recipes.BERTAttackLi2020.build(model_wrapper)
                 #TextBuggerLi2018
                 #PWWSRen2019
+                #BERTAttackLi2020
+                #CLARE2020
+                #BAEGarg2019
                 #BERTAttackLi2020
                 attackargs = textattack.AttackArgs(num_examples=-1, random_seed=765, checkpoint_interval=None, disable_stdout=True)
                 attack_args = {
