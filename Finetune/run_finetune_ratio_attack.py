@@ -45,6 +45,13 @@ def to_list(x):
     return x.detach().cpu().numpy()
 
 def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
+    if args.fp16:
+        try:
+            from apex import amp
+        except ImportError:
+            raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
+    else:
+        amp = None
 
     global max_dev_acc
     global max_dev_f1
@@ -192,8 +199,8 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
                     tokenizer.save_pretrained(output_dir)
                     torch.save(args, os.path.join(output_dir, "training_args.bin"))
                     logger.debug("Saving model checkpoint to %s", output_dir)
-                    if args.fp16:
-                        torch.save(amp.state_dict(), os.path.join(output_dir, "amp.pt"))
+                    # if args.fp16:
+                    #     torch.save(amp.state_dict(), os.path.join(output_dir, "amp.pt"))
                     torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
                     torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
                     logger.debug("Saving optimizer and scheduler states to %s", output_dir)
@@ -402,8 +409,8 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
                         tokenizer.save_pretrained(output_dir)
                         torch.save(args, os.path.join(output_dir, "training_args.bin"))
                         logger.debug("Saving model checkpoint to %s", output_dir)
-                        if args.fp16:
-                            torch.save(amp.state_dict(), os.path.join(output_dir, "amp.pt"))
+                        # if args.fp16:
+                        #     torch.save(amp.state_dict(), os.path.join(output_dir, "amp.pt"))
                         torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
                         torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
                         logger.debug("Saving optimizer and scheduler states to %s", output_dir)
@@ -436,8 +443,8 @@ def train(model, tokenizer, checkpoint, attack_method=None, attack_args=None):
             tokenizer.save_pretrained(output_dir)
             torch.save(args, os.path.join(output_dir, "training_args.bin"))
             logger.debug("Saving model checkpoint to %s", output_dir)
-            if args.fp16:
-                torch.save(amp.state_dict(), os.path.join(output_dir, "amp.pt"))
+            # if args.fp16:
+            #     torch.save(amp.state_dict(), os.path.join(output_dir, "amp.pt"))
             torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
             torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
             logger.debug("Saving optimizer and scheduler states to %s", output_dir)
@@ -612,8 +619,8 @@ def boosting_train(model, tokenizer, optimizer, scheduler, epoch, step):
     tokenizer.save_pretrained(output_dir)
     torch.save(args, os.path.join(output_dir, "training_args.bin"))
     logger.debug("Saving model checkpoint to %s", output_dir)
-    if args.fp16:
-        torch.save(amp.state_dict(), os.path.join(output_dir, "amp.pt"))
+    # if args.fp16:
+    #     torch.save(amp.state_dict(), os.path.join(output_dir, "amp.pt"))
     torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
     torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
     logger.debug("Saving optimizer and scheduler states to %s", output_dir)
@@ -786,7 +793,7 @@ if __name__ == "__main__":
     elif 'albert' in args.model_type:
         MatchModel = AlbertMatchModel
         Tokenizer = AlbertTokenizer
-    elif 'bert' in args.model_type:
+    elif 'bert' or 'ernie' in args.model_type:
         MatchModel = BertMatchModel
         Tokenizer = BertTokenizer
 

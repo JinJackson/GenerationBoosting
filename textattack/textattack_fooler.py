@@ -16,7 +16,7 @@ from textattack.attack_results import SuccessfulAttackResult, FailedAttackResult
 print('1')
 model_wrapper = textattack.models.wrappers.HuggingFaceModelWrapper(model, tokenizer)
 #什么牌子口红好用不贵	什么牌子的口红好用又便宜	1
-data = [(("The man is sleeping on the bed", "The man has fallen asleep on the bed"), 1), (("The man has fallen asleep on the bed", "The man is sleeping on the bed"), 1)]
+data = [(("How do I remove a wart?", "How do I remove wart on my face?"), 1), (("How do I remove wart on my face?", "How do I remove a wart?"), 1)]
 dataset = textattack.datasets.Dataset(data, input_columns=['text1', 'text2'])
 
 print('2')

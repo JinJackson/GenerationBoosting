@@ -1,7 +1,9 @@
 
 dataset="LCQMC"
 # model_type="hfl/chinese-bert-wwm"
-model_type="bert-base-chinese"
+# model_type="nghuyong/ernie-3.0-base-zh"
+model_type="hfl/chinese-macbert-large"
+# model_type="bert-base-chinese"
 model_name=${model_type#*/}
 batch_size=32
 epochs=3
@@ -10,8 +12,8 @@ learning_rate='2e-5'
 boosting_method='Gen'
 # boosting_method='TextAttack'
 # attack_recipe=''
-boosting_ratio=0.25
-saving_steps=7000    
+boosting_ratio=1
+saving_steps=250    
 boarder=20 # bu yong le
 
 exp_type=newboosting_ratiaostop_afterwarmup_nobsboarder

@@ -1,21 +1,21 @@
 
 dataset="quora"
-# model_type="hfl/chinese-bert-wwm"
 model_type="bert-base-uncased"
+# model_type="roberta-base"
 model_name=${model_type#*/}
 batch_size=64
-epochs=5
+epochs=8
 seed=4096
 learning_rate='4e-5'
-# boosting_method='Gen'
-boosting_method='TextAttack'
+boosting_method='Gen'
+# boosting_method='TextAttack'
 # attack_recipe=''
-boosting_ratio=0.1
-saving_steps=1000
+boosting_ratio=0.25
+saving_steps=5500
 boarder=20 # buyongle
 
-# exp_type=newboosting_ratiaostop_afterwarmup
-exp_type=test_textattack
+exp_type=newboosting_ratiaostop_afterwarmup
+# exp_type=test_textattack
 
 
 train_file="../Data/$dataset/clean/train_clean.txt"
@@ -42,7 +42,7 @@ CUDA_VISIBLE_DEVICES=$1 python run_finetune_ratio_attack.py \
 --learning_rate $learning_rate \
 --epochs $epochs \
 --batch_size $batch_size \
---max_length 150 \
+--max_length 128 \
 --saving_steps $saving_steps \
 --gen_device $1 \
 --boosting_train \
@@ -51,5 +51,8 @@ CUDA_VISIBLE_DEVICES=$1 python run_finetune_ratio_attack.py \
 --boosting_col2 \
 --boosting_ratio $boosting_ratio \
 --boarder $boarder \
---warmup_steps 0.1
+--warmup_steps 0.1 \
+--fp16 \
+--fptype O2
+
 # --boosting_origin \
